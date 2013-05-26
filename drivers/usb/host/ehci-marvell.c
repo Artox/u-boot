@@ -12,7 +12,9 @@
 #include "ehci.h"
 #include <asm/arch/cpu.h>
 
-#if defined(CONFIG_KIRKWOOD)
+#if defined(CONFIG_DOVE)
+#include <asm/arch/dove.h>
+#elif defined(CONFIG_KIRKWOOD)
 #include <asm/arch/kirkwood.h>
 #elif defined(CONFIG_ORION5X)
 #include <asm/arch/orion5x.h>
@@ -95,7 +97,12 @@ static void usb_brg_adrdec_setup(struct mvusb_regs *usb_base)
  */
 int ehci_hcd_init(int index, struct ehci_hccr **hccr, struct ehci_hcor **hcor)
 {
+#ifdef MVUSB1_BASE
+	struct mvusb_regs *usb_base =
+		(struct mvusb_regs *)((index == 0) ? MVUSB0_BASE : MVUSB1_BASE);
+#else
 	struct mvusb_regs *usb_base = (struct mvusb_regs *)MVUSB0_BASE;
+#endif
 
 	usb_brg_adrdec_setup(usb_base);
 	*hccr = (struct ehci_hccr *)(&usb_base->ehci_regs);
