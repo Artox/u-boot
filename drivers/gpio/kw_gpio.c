@@ -1,63 +1,63 @@
 /*
- * arch/arm/plat-orion/gpio.c
+ * Marvell Dove and Kirkwood SoC GPIO handling
  *
- * Marvell Orion SoC GPIO handling.
+ * Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
- */
-
-/*
  * Based on (mostly copied from) plat-orion based Linux 2.6 kernel driver.
  * Removed orion_gpiochip struct and kernel level irq handling.
- *
  * Dieter Kiermaier dk-arm-linux@gmx.de
+ *
+ * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <asm/bitops.h>
 #include <asm/io.h>
-#include <asm/arch/kirkwood.h>
 #include <asm/arch/gpio.h>
+#include <kw_gpio.h>
 
 static unsigned long gpio_valid_input[BITS_TO_LONGS(GPIO_MAX)];
 static unsigned long gpio_valid_output[BITS_TO_LONGS(GPIO_MAX)];
 
 void __set_direction(unsigned pin, int input)
 {
+	u32 base = GPIO_BASE(pin);
 	u32 u;
 
-	u = readl(GPIO_IO_CONF(pin));
+	u = readl(GPIO_IO_CONF(base));
 	if (input)
 		u |= 1 << (pin & 31);
 	else
 		u &= ~(1 << (pin & 31));
-	writel(u, GPIO_IO_CONF(pin));
+	writel(u, GPIO_IO_CONF(base));
 
-	u = readl(GPIO_IO_CONF(pin));
+	u = readl(GPIO_IO_CONF(base));
 }
 
 void __set_level(unsigned pin, int high)
 {
+	u32 base = GPIO_BASE(pin);
 	u32 u;
 
-	u = readl(GPIO_OUT(pin));
+	u = readl(GPIO_OUT(base));
 	if (high)
 		u |= 1 << (pin & 31);
 	else
 		u &= ~(1 << (pin & 31));
-	writel(u, GPIO_OUT(pin));
+	writel(u, GPIO_OUT(base));
 }
 
 void __set_blinking(unsigned pin, int blink)
 {
+	u32 base = GPIO_BASE(pin);
 	u32 u;
 
-	u = readl(GPIO_BLINK_EN(pin));
+	u = readl(GPIO_BLINK_EN(base));
 	if (blink)
 		u |= 1 << (pin & 31);
 	else
 		u &= ~(1 << (pin & 31));
-	writel(u, GPIO_BLINK_EN(pin));
+	writel(u, GPIO_BLINK_EN(base));
 }
 
 int kw_gpio_is_valid(unsigned pin, int mode)
@@ -72,7 +72,7 @@ int kw_gpio_is_valid(unsigned pin, int mode)
 	}
 
 err_out:
-		printf("%s: invalid GPIO %d\n", __func__, pin);
+	printf("%s: invalid GPIO %d/%d\n", __func__, pin, GPIO_MAX);
 	return 1;
 }
 
@@ -124,12 +124,13 @@ int kw_gpio_direction_output(unsigned pin, int value)
 
 int kw_gpio_get_value(unsigned pin)
 {
+	u32 base = GPIO_BASE(pin);
 	int val;
 
-	if (readl(GPIO_IO_CONF(pin)) & (1 << (pin & 31)))
-		val = readl(GPIO_DATA_IN(pin)) ^ readl(GPIO_IN_POL(pin));
+	if (readl(GPIO_IO_CONF(base)) & (1 << (pin & 31)))
+		val = readl(GPIO_DATA_IN(base)) ^ readl(GPIO_IN_POL(base));
 	else
-		val = readl(GPIO_OUT(pin));
+		val = readl(GPIO_OUT(base));
 
 	return (val >> (pin & 31)) & 1;
 }
