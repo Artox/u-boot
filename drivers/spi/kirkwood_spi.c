@@ -12,23 +12,62 @@
 #include <malloc.h>
 #include <spi.h>
 #include <asm/io.h>
-#include <asm/arch/kirkwood.h>
-#include <asm/arch/spi.h>
+#include <asm/arch/config.h>
+#ifdef CONFIG_KIRKWOOD
 #include <asm/arch/mpp.h>
+#include <asm/arch/spi.h>
+#endif
 
-static struct kwspi_registers *spireg = (struct kwspi_registers *)KW_SPI_BASE;
+/* SPI Registers on Dove/Kirkwood SOC */
+struct kwspi_registers {
+	u32 ctrl;	/* 0x00 */
+	u32 cfg;	/* 0x04 */
+	u32 dout;	/* 0x08 */
+	u32 din;	/* 0x0c */
+	u32 irq_cause;	/* 0x10 */
+	u32 irq_mask;	/* 0x14 */
+};
 
+#if defined(CONFIG_KIRKWOOD)
+static struct kwspi_registers *spireg =
+	(struct kwspi_registers *)KW_SPI_BASE;
+#elif defined(CONFIG_DOVE)
+static struct kwspi_registers *spireg =
+	(struct kwspi_registers *)DOVE_SPI_BASE;
+#endif
+
+#define KWSPI_CLKPRESCL_MASK	0x1f
+#define KWSPI_CLKPRESCL_MIN	0x12
+#define KWSPI_CSN_ACT		1 /* Activates serial memory interface */
+#define KWSPI_SMEMRDY		(1 << 1) /* SerMem Data xfer ready */
+#define KWSPI_IRQUNMASK		1 /* unmask SPI interrupt */
+#define KWSPI_IRQMASK		0 /* mask SPI interrupt */
+#define KWSPI_SMEMRDIRQ		1 /* SerMem data xfer ready irq */
+#define KWSPI_XFERLEN_1BYTE	0
+#define KWSPI_XFERLEN_2BYTE	(1 << 5)
+#define KWSPI_XFERLEN_MASK	(1 << 5)
+#define KWSPI_ADRLEN_1BYTE	0
+#define KWSPI_ADRLEN_2BYTE	(1 << 8)
+#define KWSPI_ADRLEN_3BYTE	(2 << 8)
+#define KWSPI_ADRLEN_4BYTE	(3 << 8)
+#define KWSPI_ADRLEN_MASK	(3 << 8)
+#define KWSPI_TIMEOUT		10000
+
+#if defined(CONFIG_KIRKWOOD)
 u32 cs_spi_mpp_back[2];
+#endif
 
 struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 				unsigned int max_hz, unsigned int mode)
 {
 	struct spi_slave *slave;
 	u32 data;
+#if defined(CONFIG_KIRKWOOD)
 	static const u32 kwspi_mpp_config[2][2] = {
 		{ MPP0_SPI_SCn, 0 }, /* if cs == 0 */
 		{ MPP7_SPI_SCn, 0 } /* if cs != 0 */
 	};
+#endif
 
 	if (!spi_cs_is_valid(bus, cs))
 		return NULL;
@@ -51,15 +90,19 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 	writel(KWSPI_SMEMRDIRQ, &spireg->irq_cause);
 	writel(KWSPI_IRQMASK, &spireg->irq_mask);
 
+#if defined(CONFIG_KIRKWOOD)
 	/* program mpp registers to select  SPI_CSn */
 	kirkwood_mpp_conf(kwspi_mpp_config[cs ? 1 : 0], cs_spi_mpp_back);
+#endif
 
 	return slave;
 }
 
 void spi_free_slave(struct spi_slave *slave)
 {
+#if defined(CONFIG_KIRKWOOD)
 	kirkwood_mpp_conf(cs_spi_mpp_back, NULL);
+#endif
 	free(slave);
 }
 
