@@ -20,17 +20,35 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define rdl(off)	readl(MVUSB0_BASE + (off))
-#define wrl(off, val)	writel((val), MVUSB0_BASE + (off))
-
-#define USB_WINDOW_CTRL(i)	(0x320 + ((i) << 4))
-#define USB_WINDOW_BASE(i)	(0x324 + ((i) << 4))
 #define USB_TARGET_DRAM		0x0
+
+/* USB 2.0 Bridge Address Decoding registers */
+struct mvusb_bad_window_regs {
+	u32 control;
+	u32 base;
+	u32 reserved[2];
+};
+
+struct mvusb_bridge_regs {
+	u32 bridge_control;
+	u32 reserved1[3];
+	u32 int_cause; /* Bridge Interrupt Cause Register */
+	u32 int_mask; /* Bridge Interrupt Mask Register */
+	u32 reserved2;
+	u32 error_addr; /* Bridge Error Address Register */
+	struct mvusb_bad_window_regs window[4];
+};
+
+struct mvusb_regs {
+	u32 unused1[0x40];
+	u32 ehci_regs[0x80];
+	struct mvusb_bridge_regs bridge;
+};
 
 /*
  * USB 2.0 Bridge Address Decoding registers setup
  */
-static void usb_brg_adrdec_setup(void)
+static void usb_brg_adrdec_setup(struct mvusb_regs *usb_base)
 {
 	int i;
 	u32 size, base, attrib;
@@ -59,14 +77,15 @@ static void usb_brg_adrdec_setup(void)
 
 		size = gd->bd->bi_dram[i].size;
 		base = gd->bd->bi_dram[i].start;
-		if ((size) && (attrib))
-			wrl(USB_WINDOW_CTRL(i),
-				MVCPU_WIN_CTRL_DATA(size, USB_TARGET_DRAM,
-					attrib, MVCPU_WIN_ENABLE));
+		if (size && attrib)
+			writel(MVCPU_WIN_CTRL_DATA(size, USB_TARGET_DRAM,
+						   attrib, MVCPU_WIN_ENABLE),
+			       usb_base->bridge.window[i].control);
 		else
-			wrl(USB_WINDOW_CTRL(i), MVCPU_WIN_DISABLE);
+			writel(MVCPU_WIN_DISABLE,
+			       usb_base->bridge.window[i].control);
 
-		wrl(USB_WINDOW_BASE(i), base);
+		writel(base, usb_base->bridge.window[i].base);
 	}
 }
 
@@ -76,9 +95,10 @@ static void usb_brg_adrdec_setup(void)
  */
 int ehci_hcd_init(int index, struct ehci_hccr **hccr, struct ehci_hcor **hcor)
 {
-	usb_brg_adrdec_setup();
+	struct mvusb_regs *usb_base = (struct mvusb_regs *)MVUSB0_BASE;
 
-	*hccr = (struct ehci_hccr *)(MVUSB0_BASE + 0x100);
+	usb_brg_adrdec_setup(usb_base);
+	*hccr = (struct ehci_hccr *)(&usb_base->ehci_regs);
 	*hcor = (struct ehci_hcor *)((uint32_t) *hccr
 			+ HC_LENGTH(ehci_readl(&(*hccr)->cr_capbase)));
 
