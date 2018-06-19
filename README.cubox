@@ -1,0 +1,19 @@
+# build
+export CROSS_COMPILE=<path to your favorite ARM cross compiler>
+make cubox_config BOOTROM=1 SPIBOOT=1 DRAM=HYNIX_CUBOX NAND=0
+make
+
+# backup to raw mmc
+sf read 0x00200000 0 0x00080000
+mmc rescan
+mmc write 0 0x00200000 0 0x00000400
+dd if=/dev/sdX bs=512 count=1024 of=backup.bin
+
+# flash
+mmc rescan
+ext4load mmc 0:1 0x00200000 u-boot-cubox_hynix_cubox_unified_spi.bin
+sf protect off
+sf erase 0 0x00080000
+sf write 0x00200000 0 0x00080000
+sf protect on
+reset
