@@ -152,8 +152,8 @@
 #define BOOT_TARGET_DEVICES_USB(func)
 #endif
 
-#ifdef CONFIG_SATA
-#define BOOT_TARGET_DEVICES_SATA(func) func(SATA, sata, 0)
+#ifdef CONFIG_SCSI
+#define BOOT_TARGET_DEVICES_SCSI(func) func(SCSI, scsi, 0) func(SCSI, scsi, 1)
 #else
 #define BOOT_TARGET_DEVICES_SATA(func)
 #endif
@@ -161,7 +161,7 @@
 #define BOOT_TARGET_DEVICES(func) \
 	BOOT_TARGET_DEVICES_MMC(func) \
 	BOOT_TARGET_DEVICES_USB(func) \
-	BOOT_TARGET_DEVICES_SATA(func) \
+	BOOT_TARGET_DEVICES_SCSI(func) \
 	func(PXE, pxe, na) \
 	func(DHCP, dhcp, na)
 
